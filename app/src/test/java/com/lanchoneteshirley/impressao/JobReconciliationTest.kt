@@ -23,4 +23,8 @@ class JobReconciliationTest {
     @Test fun allowsServerRetryOnlyWhenNoBytesWereSent() {
         assertEquals(ReconciliationDecision.SAFE_TO_CONTINUE, JobReconciliation.decide(pending(false), JobState("10", "PENDENTE", null)))
     }
+
+    @Test fun waitsWhenRemoteTerminalOutcomeConflictsWithPendingAck() {
+        assertEquals(ReconciliationDecision.WAIT, JobReconciliation.decide(pending(true, "ENVIADO"), JobState("10", "FALHOU", "FALHA_ANTES_ENVIO")))
+    }
 }

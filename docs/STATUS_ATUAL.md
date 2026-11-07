@@ -1,6 +1,12 @@
 # Status atual
 
-Atualizado em 31/10/2026.
+Atualizado em 06/11/2026.
+
+## Etapa 11
+
+Revisão estática concluída. O serviço recebeu wake lock parcial limitado ao turno ativo; foram adicionados testes instrumentados do armazenamento cifrado/estado real do serviço e regressão de reconciliação conflitante.
+
+Backend e TEST isolado já estão em 40 migrations/10 seeds, com 52 integrações aprovadas. Neste projeto, Android Studio, SDK, Gradle/wrapper e ADB continuam ausentes, portanto nenhum build, APK ou teste físico foi executado. Leia `51_TESTES_E_BUILD_ANDROID.md` e `53_MATRIZ_HOMOLOGACAO_FISICA.md`.
 
 ## Etapa 10
 

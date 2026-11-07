@@ -1,11 +1,13 @@
 package com.lanchoneteshirley.impressao.service
 
+import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.lanchoneteshirley.impressao.BuildConfig
@@ -31,6 +33,7 @@ class PrintForegroundService : Service() {
     private lateinit var tokenStore: SecureTokenStore
     @Volatile private var signalCall: Call? = null
     private var shiftJob: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate(); configStore = PrintConfigStore(this); tokenStore = SecureTokenStore(this); createChannel()
@@ -39,6 +42,7 @@ class PrintForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) { configStore.setShiftRequested(false); updateNotification("Encerrando turno após o trabalho atual…"); scope.launch { stopShift() }; return START_NOT_STICKY }
         startForeground("Conectando ao balcão…")
+        acquireWakeLock()
         running = true
         configStore.setShiftRequested(true)
         configStore.setRuntime(true, "CONECTANDO")
@@ -171,11 +175,20 @@ class PrintForegroundService : Service() {
     private suspend fun stopShift() = queueMutex.withLock {
         val config = configStore.load(); val token = tokenStore.load()
         if (token != null && config.apiUrl.isNotBlank()) runCatching { heartbeat(PrintApi(config.apiUrl), token, false, "DESCONECTADO") }
-        configStore.setShiftRequested(false); configStore.setRuntime(false, "PARADO"); signalCall?.cancel(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
+        configStore.setShiftRequested(false); configStore.setRuntime(false, "PARADO"); signalCall?.cancel(); releaseWakeLock(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
     }
 
-    private fun failAndStop(message: String) { configStore.setShiftRequested(false); configStore.setRuntime(false, "ERRO", message); updateNotification(message); signalCall?.cancel(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+    private fun failAndStop(message: String) { configStore.setShiftRequested(false); configStore.setRuntime(false, "ERRO", message); updateNotification(message); signalCall?.cancel(); releaseWakeLock(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
     private fun safeError(error: Throwable) = (error.message ?: error.javaClass.simpleName).replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer [REDACTED]").take(500)
+
+    @SuppressLint("WakelockTimeout")
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        wakeLock = getSystemService(PowerManager::class.java)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ShirleyImpressao:TurnoAtivo")
+            .apply { setReferenceCounted(false); acquire() }
+    }
+    private fun releaseWakeLock() { wakeLock?.takeIf { it.isHeld }?.release(); wakeLock = null }
 
     private fun startForeground(content: String) {
         val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0
@@ -193,7 +206,7 @@ class PrintForegroundService : Service() {
     override fun onDestroy() {
         val wasActive = configStore.isShiftActive()
         running = false
-        signalCall?.cancel(); scope.cancel()
+        signalCall?.cancel(); releaseWakeLock(); scope.cancel()
         if (wasActive) {
             configStore.setShiftRequested(false)
             val interruptedMessage = if (configStore.hasCriticalWarning()) null else configStore.runtimeError() ?: "O serviço foi encerrado. Abra o app e inicie o turno manualmente."
