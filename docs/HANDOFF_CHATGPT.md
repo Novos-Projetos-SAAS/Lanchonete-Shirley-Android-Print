@@ -1,6 +1,15 @@
 # Handoff
 
-Data: 06/11/2026. Projeto: `Lanchonete-Shirley-Android-Print`.
+Data: 08/11/2026. Projeto: `Lanchonete-Shirley-Android-Print`.
+
+## Padronização de erros — handoff prioritário
+
+- `PrintApiException` preserva status/código/referência/detalhes seguros; usar `operatorMessage` para UI e serviço.
+- Não exibir `Throwable.message` diretamente ao operador.
+- Não alterar a fronteira `startSending` nem permitir retry automático de resultado indeterminado.
+- Três testes novos cobrem parser/fallback/rede/Bluetooth, mas o Gradle não iniciou por bloqueio de loopback; SDK Android não configurado.
+- Próximo gate no Android Studio: `testDebugUnitTest lintDebug assembleDebug`, depois matriz física 53.
+- Relatório: `54_TRATAMENTO_ERROS_API_BLUETOOTH.md`.
 
 ## Etapa 11
 

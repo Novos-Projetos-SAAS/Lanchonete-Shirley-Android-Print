@@ -4,6 +4,14 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable data class ApiEnvelope<T>(val status: String, val data: T)
+@Serializable data class ApiErrorDetail(val path: String? = null, val message: String? = null)
+@Serializable data class ApiErrorEnvelope(
+    val status: String? = null,
+    val code: String? = null,
+    val message: String? = null,
+    @SerialName("request_id") val requestId: String? = null,
+    val details: List<ApiErrorDetail> = emptyList(),
+)
 @Serializable data class PairRequest(val codigo: String, @SerialName("installation_id") val installationId: String, val nome: String, @SerialName("app_version") val appVersion: String, @SerialName("android_version") val androidVersion: String)
 @Serializable data class DeviceInfo(val id: String, val nome: String)
 @Serializable data class PairResponse(val dispositivo: DeviceInfo, val credencial: String, @SerialName("credencial_expira_em") val credentialExpiresAt: String)

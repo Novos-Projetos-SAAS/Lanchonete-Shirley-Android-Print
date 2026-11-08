@@ -18,6 +18,8 @@ import com.lanchoneteshirley.impressao.data.PrintConfigStore
 import com.lanchoneteshirley.impressao.data.PrintJob
 import com.lanchoneteshirley.impressao.network.PrintApi
 import com.lanchoneteshirley.impressao.network.PrintApiException
+import com.lanchoneteshirley.impressao.network.ErrorContext
+import com.lanchoneteshirley.impressao.network.operatorMessage
 import com.lanchoneteshirley.impressao.printer.BluetoothSppPrinterTransport
 import com.lanchoneteshirley.impressao.printer.EscPosEncoder
 import com.lanchoneteshirley.impressao.security.SecureTokenStore
@@ -73,11 +75,11 @@ class PrintForegroundService : Service() {
             } catch (error: PrintApiException) {
                 if (error.status == 401) { failAndStop("Credencial revogada ou expirada. Desvincule este aparelho e faça um novo pareamento."); return }
                 failures += 1
-                configStore.setRuntime(true, "ERRO", safeError(error)); updateNotification("Turno ativo · conexão instável")
+                configStore.setRuntime(true, "ERRO", operatorMessage(error, "Falha temporária na comunicação com o servidor.")); updateNotification("Turno ativo · conexão instável")
                 nextDelay = (RECONCILIATION_MS * (1L shl failures.coerceAtMost(2))).coerceAtMost(MAX_BACKOFF_MS)
             } catch (error: Throwable) {
                 failures += 1
-                configStore.setRuntime(true, "ERRO", safeError(error)); updateNotification("Turno ativo · conexão instável")
+                configStore.setRuntime(true, "ERRO", operatorMessage(error, "Falha temporária na comunicação com o servidor.")); updateNotification("Turno ativo · conexão instável")
                 nextDelay = (RECONCILIATION_MS * (1L shl failures.coerceAtMost(2))).coerceAtMost(MAX_BACKOFF_MS)
             }
             delay(nextDelay)
@@ -97,7 +99,7 @@ class PrintForegroundService : Service() {
         val bytes = EscPosEncoder.encode(job.text, job.impressora.codificacao, job.impressora.autoCut)
         val connection = try { BluetoothSppPrinterTransport(this).connect(config.printerAddress) }
         catch (error: CancellationException) { throw error }
-        catch (error: Throwable) { return reportSafely(api, token, job, "FALHA_ANTES_ENVIO", safeError(error), false) }
+        catch (error: Throwable) { return reportSafely(api, token, job, "FALHA_ANTES_ENVIO", operatorMessage(error, "Falha ao conectar à impressora.", ErrorContext.BLUETOOTH), false) }
         connection.use {
             var sendingStarted = false
             try {
@@ -109,7 +111,7 @@ class PrintForegroundService : Service() {
                 throw error
             } catch (error: Throwable) {
                 val result = if (sendingStarted) "RESULTADO_INDETERMINADO" else "FALHA_ANTES_ENVIO"
-                val reported = reportSafely(api, token, job, result, safeError(error), sendingStarted)
+                val reported = reportSafely(api, token, job, result, operatorMessage(error, "Falha durante o envio à impressora.", ErrorContext.BLUETOOTH), sendingStarted)
                 if (sendingStarted) configStore.setCriticalWarning(job.id, "Resultado indeterminado no job ${job.id}; confira a impressora antes de emitir 2ª via.", true)
                 return reported && !sendingStarted
             }
@@ -179,8 +181,6 @@ class PrintForegroundService : Service() {
     }
 
     private fun failAndStop(message: String) { configStore.setShiftRequested(false); configStore.setRuntime(false, "ERRO", message); updateNotification(message); signalCall?.cancel(); releaseWakeLock(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
-    private fun safeError(error: Throwable) = (error.message ?: error.javaClass.simpleName).replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer [REDACTED]").take(500)
-
     @SuppressLint("WakelockTimeout")
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return

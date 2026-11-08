@@ -1,6 +1,12 @@
 # Status atual
 
-Atualizado em 06/11/2026.
+Atualizado em 08/11/2026.
+
+## Padronização de erros
+
+Implementada no código para API, pareamento, rede, timeout, permissões e Bluetooth, sem alterar as garantias anti-duplicidade. Foram adicionados três testes unitários.
+
+O Gradle wrapper agora existe, mas duas execuções pararam com `Unable to establish loopback connection`; o SDK Android também não está configurado no ambiente. Build, testes Android e homologação física continuam pendentes. Leia `54_TRATAMENTO_ERROS_API_BLUETOOTH.md`.
 
 ## Etapa 11
 

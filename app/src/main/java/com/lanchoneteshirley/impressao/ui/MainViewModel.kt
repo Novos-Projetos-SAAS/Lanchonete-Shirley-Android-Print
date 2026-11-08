@@ -12,6 +12,8 @@ import com.lanchoneteshirley.impressao.data.PairRequest
 import com.lanchoneteshirley.impressao.data.PrintConfigStore
 import com.lanchoneteshirley.impressao.network.PrintApi
 import com.lanchoneteshirley.impressao.network.PrintApiException
+import com.lanchoneteshirley.impressao.network.ErrorContext
+import com.lanchoneteshirley.impressao.network.operatorMessage
 import com.lanchoneteshirley.impressao.printer.BluetoothSppPrinterTransport
 import com.lanchoneteshirley.impressao.printer.EscPosEncoder
 import com.lanchoneteshirley.impressao.security.SecureTokenStore
@@ -65,7 +67,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             tokenStore.save(response.credencial); configStore.saveConnection(state.apiUrl, state.deviceName)
             state = state.copy(paired = true, busy = false, code = "", message = "Aparelho pareado com segurança.")
         } catch (error: CancellationException) { throw error }
-        catch (error: Throwable) { state = state.copy(busy = false, message = error.message ?: "Não foi possível parear.") }
+        catch (error: Throwable) { state = state.copy(busy = false, message = operatorMessage(error, "Não foi possível parear o aparelho.", ErrorContext.PAIRING)) }
     }
 
     fun selectPrinter(name: String, address: String) { state = state.copy(printerName = name, printerAddress = address); persistPrinter() }
@@ -84,7 +86,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             tokenStore.save(response.credencial)
             state = state.copy(busy = false, message = "Credencial rotacionada com sucesso.")
         } catch (error: CancellationException) { throw error }
-        catch (error: Throwable) { state = state.copy(busy = false, message = error.message ?: "Não foi possível rotacionar a credencial.") }
+        catch (error: Throwable) { state = state.copy(busy = false, message = operatorMessage(error, "Não foi possível rotacionar a credencial.")) }
     }
 
     fun unlink() = viewModelScope.launch {
@@ -100,7 +102,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             tokenStore.clear(); configStore.clearPairing()
             state = loadState().copy(message = "Aparelho desvinculado. Gere um novo código no painel para parear novamente.")
         } catch (error: CancellationException) { throw error }
-        catch (error: Throwable) { state = state.copy(busy = false, message = error.message ?: "Não foi possível desvincular com segurança.") }
+        catch (error: Throwable) { state = state.copy(busy = false, message = operatorMessage(error, "Não foi possível desvincular com segurança.")) }
     }
 
     fun testPrinter() = viewModelScope.launch {
@@ -115,7 +117,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             state = state.copy(busy = false, message = "Bytes do teste enviados. Confirme visualmente se o papel saiu corretamente.")
         } catch (error: CancellationException) { throw error }
-        catch (error: Throwable) { state = state.copy(busy = false, message = error.message ?: "Não foi possível enviar o teste à impressora.") }
+        catch (error: Throwable) { state = state.copy(busy = false, message = operatorMessage(error, "Não foi possível enviar o teste à impressora.", ErrorContext.BLUETOOTH)) }
     }
 
     fun acknowledgeWarning() {
