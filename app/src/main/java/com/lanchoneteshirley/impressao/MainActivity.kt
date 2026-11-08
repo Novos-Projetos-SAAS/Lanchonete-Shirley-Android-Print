@@ -57,6 +57,7 @@ private fun bondedPrinters(context: Context, granted: Boolean): List<BondedPrint
 @SuppressLint("MissingPermission")
 private fun bluetoothEnabled(context: Context, granted: Boolean): Boolean = granted && context.getSystemService(BluetoothManager::class.java)?.adapter?.isEnabled == true
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PrintApp(deepLinkApi: String?, deepLinkCode: String?, resumeTick: Int, model: MainViewModel = viewModel()) {
     val context = LocalContext.current
